@@ -1,0 +1,50 @@
+name: Tests Unitaires Todolist
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: Install backend dependencies
+        run: |
+          cd projet_devops_backend
+          npm install
+      - name: Run backend tests
+        run: |
+          cd projet_devops_backend
+          npm test
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Install frontend dependencies
+        run: |
+          cd projet_devops_frontend
+          npm install
+
+      - name: Install Angular CLI globally
+        run: npm install -g @angular/cli@15
+
+      - name: Run frontend unit tests
+        run: |
+          cd projet_devops_frontend
+          ng test --watch=false --browsers=ChromeHeadless

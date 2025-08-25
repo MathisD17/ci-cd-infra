@@ -1,0 +1,58 @@
+name: CI/CD AKS Todolist
+
+on:
+  workflow_run:
+    workflows: ["Tests Unitaires Todolist"]
+    types:
+     # - completed
+
+jobs:
+  deploy-aks:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # Terraform pour déployer AKS
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve
+
+      # Login Docker Hub
+      - name: Login Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Build & push images
+      - name: Build & Push Backend
+        run: |
+          docker build -t teralti/todolist-backend:latest ./projet_devops_backend
+          docker push teralti/todolist-backend:latest
+
+      - name: Build & Push Frontend
+        run: |
+          docker build -t teralti/todolist-frontend:latest ./projet_devops_frontend
+          docker push teralti/todolist-frontend:latest
+
+      # Déploiement sur AKS
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group ${{ secrets.AZURE_RG }} --name ${{ secrets.AKS_NAME }}
+
+      - name: Deploy to AKS
+        run: |
+          kubectl apply -f k8s/todolist-all.yml
