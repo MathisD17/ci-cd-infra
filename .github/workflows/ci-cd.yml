@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read        # lecture du repo
   id-token: write       # pour OIDC Azure
-  workflows: read       # nécessaire pour workflow_run
+#  workflows: read       # nécessaire pour workflow_run
 
 
 jobs:
