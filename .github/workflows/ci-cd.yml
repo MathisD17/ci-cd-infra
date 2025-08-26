@@ -3,9 +3,15 @@ name: Deploy AKS
 # Ce workflow se déclenche uniquement après succès des tests backend et frontend
 on:
   workflow_run:
-    workflows: ["Backend CI", "Frontend CI"] # noms exacts des workflows des autres repos
+    workflows: ["Backend CI", "Frontend CI"]
     types:
       - completed
+
+permissions:
+  contents: read        # lecture du repo
+  id-token: write       # pour OIDC Azure
+  workflows: read       # nécessaire pour workflow_run
+
 
 jobs:
   deploy:
@@ -33,8 +39,9 @@ jobs:
       #Déploiement AKS avec Terraform (sera créé plus tard)
       - name: Deploy AKS with Terraform
         run: |
-          cd terraform
+          cd iac
           terraform init
+          terraform plan -out=tfplan
           terraform apply -auto-approve
 
       #Installer kubectl
@@ -45,8 +52,32 @@ jobs:
       - name: Get AKS credentials
         run: |
           az aks get-credentials --resource-group <RESOURCE_GROUP> --name <AKS_CLUSTER_NAME> --overwrite-existing
+      - name: Install NGINX Ingress Controller
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx --create-namespace \
+          --set controller.replicaCount=2 \
+          --set controller.nodeSelector."kubernetes\.io/os"=linux \
+          --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
+      
+      - name: Wait for ingress IP
+        run: |
+          echo "Waiting for ingress IP..."
+          until [ ! -z "$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do
+            sleep 5
+          done
+          echo "Ingress IP assigned!"
+
 
       #Déploiement des manifests Kubernetes
       - name: Apply Kubernetes manifests
         run: |
           kubectl apply -f k8s/
+      - name: Check rollout
+        run: |
+          kubectl rollout status deployment/mysql -n todolist
+          kubectl rollout status deployment/backend -n todolist
+          kubectl rollout status deployment/frontend -n todolist
+
