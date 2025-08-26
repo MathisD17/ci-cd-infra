@@ -37,7 +37,7 @@ spec:
           image: mysql:8.0
           env:
             - name: MYSQL_ROOT_PASSWORD
-              value: "azerty"
+              value: "root"
             - name: MYSQL_DATABASE
               value: "todolist_db"
           ports:
@@ -81,17 +81,26 @@ spec:
       initContainers:
         - name: wait-for-mysql
           image: busybox
-          command: ['sh', '-c', 'until nc -z mysql 3306; do echo waiting for mysql; sleep 2; done;']
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MySQL to be ready..."
+              until nc -z mysql 3306; do
+                echo "MySQL not ready yet..."
+                sleep 2
+              done
+              echo "MySQL is ready!"
       containers:
         - name: backend
-          image: teralti/todolist-backend:1.0.0
+          image: teralti/todolist-backend:latest
           env:
             - name: DB_HOST
               value: "mysql"
             - name: DB_USER
               value: "root"
             - name: DB_PASSWORD
-              value: "azerty"
+              value: "root"
             - name: DB_NAME
               value: "todolist_db"
           ports:
@@ -135,7 +144,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: teralti/todolist-frontend:1.0.0
+          image: teralti/todolist-frontend:latest
           ports:
             - containerPort: 80
           resources:
@@ -159,3 +168,34 @@ spec:
     - port: 80
       targetPort: 80
   type: LoadBalancer
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todolist-ingress
+  namespace: todolist
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: todolist.local
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3000
+

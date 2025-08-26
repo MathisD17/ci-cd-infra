@@ -1,39 +1,52 @@
 name: Deploy AKS
 
+# Ce workflow se déclenche uniquement après succès des tests backend et frontend
 on:
   workflow_run:
-    workflows: ["Backend CI", "Frontend CI"] # nom exact des workflows des autres repos
+    workflows: ["Backend CI", "Frontend CI"] # noms exacts des workflows des autres repos
     types:
       - completed
 
 jobs:
   deploy:
+    # Ne s'exécute que si les workflows précédents ont réussi
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
+      #Récupérer le repo infra (Terraform + manifests)
       - name: Checkout infra repo
         uses: actions/checkout@v4
 
+      #Connexion à Azure
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      #Installer Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
+      #Déploiement AKS avec Terraform (sera créé plus tard)
       - name: Deploy AKS with Terraform
         run: |
           cd terraform
           terraform init
           terraform apply -auto-approve
 
+      #Installer kubectl
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
 
-      - name: Apply manifests
+      #Récupération des credentials AKS
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group <RESOURCE_GROUP> --name <AKS_CLUSTER_NAME> --overwrite-existing
+
+      #Déploiement des manifests Kubernetes
+      - name: Apply Kubernetes manifests
         run: |
           kubectl apply -f k8s/

@@ -1,1 +1,3 @@
 readme.bak.md
+iac/.terraform/
+iac/.terraform.lock.hcl
