@@ -1,17 +1,32 @@
-# ToDoList Fullstack CI/CD Project
+# ToDoList CI/CD Project
 
-Projet d’application **ToDoList** mono-utilisateur avec déploiement automatisé sur **Azure Kubernetes Service (AKS)**, conteneurisation Docker, pipelines CI/CD et infrastructure gérée avec **Terraform**.
+**Auteur :** @NoahT  
+**Date :** 2025-08-27
+
+Ce projet regroupe le **backend** et le **frontend** de l’application ToDoList, avec **CI/CD**, **Docker**, et déploiement sur **AKS**. L’objectif est de mettre en place un workflow complet de production d’une application conteneurisée, avec tests automatisés, build/push des images, et orchestration Kubernetes.
 
 ---
 
-## 🏗️ Structure du projet
+## 🚀 Technologies utilisées
+
+- Backend : Node.js, Express, Sequelize, MySQL  
+- Frontend : Angular 15  
+- Conteneurisation : Docker, Docker Compose  
+- Orchestration : Kubernetes (AKS), Helm (NGINX Ingress)  
+- Infrastructure as Code : Terraform (AKS, ressources Azure)  
+- CI/CD : GitHub Actions  
+- Monitoring : Prometheus + Grafana (exposition de métriques et dashboards)
+
+---
+
+## 🗂️ Structure du projet
 
 ```
 ci-cd-infra/
-├── .github/workflows/           # Pipelines GitHub Actions
-├── iac/                         # Infrastructure as Code (Terraform)
-├── k8s/                         # Manifests Kubernetes (Deployments, Services, Ingress)
-├── projet_devops_backend/       # Backend Node.js + MySQL
+├── .github/workflows/       # CI/CD : tests, build, push, deploy
+├── iac/                     # Terraform pour AKS et ressources associées
+├── k8s/                     # Manifests Kubernetes (PVC, Deployments, Services, Ingress)
+├── projet_devops_backend/
 │   ├── src/
 │   ├── config/
 │   ├── controllers/
@@ -21,67 +36,61 @@ ci-cd-infra/
 │   ├── docs/
 │   ├── middlewares/
 │   ├── app.js
-│   ├── server.js
+│   └── server.js
 │   ├── tests/
 │   ├── scriptSQL.sql
 │   ├── .env
-│   ├── package.json
-│   └── README.md
-├── projet_devops_frontend/      # Frontend Angular
+│   └── package.json
+├── projet_devops_frontend/
 │   ├── src/
 │   ├── angular.json
-│   ├── package.json
 │   ├── Dockerfile
-│   ├── README.md
-├── monitoring/
-├── .gitignore
+│   ├── package-lock.json
+│   ├── package.json
+│   └── README.md
+├── monitoring/              # Prometheus + Grafana configuration
 ├── docker-compose.build.local.yml
 ├── docker-compose.prod.local.yml
-└── README.md                    # Ce fichier
+└── README.md
 ```
 
 ---
 
-## 🚀 Technologies utilisées
+## ⚙️ Préparation de l’infrastructure AKS
 
-- **Backend** : Node.js, Express, Sequelize, MySQL, Jest + Supertest, Swagger UI  
-- **Frontend** : Angular 15, Karma + Jasmine  
-- **CI/CD** : GitHub Actions, Docker, Docker Hub  
-- **Infra / Déploiement** : Terraform, AKS, Helm, Kubernetes, Ingress NGINX  
-- **Monitoring / Logs** : optionnel selon projet
+L’infrastructure est provisionnée avec **Terraform**.
 
----
+1. Récupérer les fichiers Terraform depuis `iac/` :  
+   ```bash
+   cd iac
+   ```
+2. Personnaliser les variables (`variables.tf` et `terraform.tfvars`) pour votre abonnement Azure.  
+3. Initialiser Terraform :  
+   ```bash
+   terraform init
+   ```
+4. Vérifier le plan :  
+   ```bash
+   terraform plan
+   ```
+5. Appliquer le plan pour créer le cluster AKS et ressources associées :  
+   ```bash
+   terraform apply
+   ```
+6. Assurez-vous d’être connecté à Azure (`az login`) pour que Terraform puisse créer les ressources.
 
-## ⚙️ Préparation de l’infrastructure
-
-1. Cloner le dépôt et accéder au dossier `iac/` contenant les fichiers Terraform.
-2. Personnaliser les fichiers Terraform pour votre abonnement Azure.
-3. Se connecter à Azure :
-
-```bash
-az login
-```
-
-4. Initialiser et appliquer Terraform :
-
-```bash
-terraform init
-terraform plan
-terraform apply
-```
-
-Cela crée le **cluster AKS** et les ressources nécessaires.
+**Choix techniques :**
+- AKS pour orchestrer les conteneurs  
+- PVC pour persistance MySQL  
+- NGINX Ingress pour exposer le frontend et backend via une URL unique
 
 ---
 
 ## 📦 Conteneurisation et Docker
 
-### Dockerfiles
-
-- Backend : `projet_devops_backend/Dockerfile`  
-- Frontend : `projet_devops_frontend/Dockerfile`
-
-### Docker Compose local pour tests
+- Chaque composant possède son **Dockerfile** (backend & frontend)  
+- Les images sont **buildées et poussées sur DockerHub** via Docker Compose et GitHub Actions  
+- Exemple Docker Compose pour tester en local (`docker-compose.prod.local.yml`) :
 
 ```yaml
 services:
@@ -96,7 +105,7 @@ services:
       - mysql-data:/var/lib/mysql
 
   backend:
-    build: ./projet_devops_backend
+    image: teralti/todolist-backend:latest
     environment:
       DB_HOST: mysql
       DB_USER: root
@@ -109,7 +118,7 @@ services:
     command: sh -c "sleep 15 && npm run start"
 
   frontend:
-    build: ./projet_devops_frontend
+    image: teralti/todolist-frontend:latest
     ports:
       - "4200:80"
     depends_on:
@@ -119,112 +128,54 @@ volumes:
   mysql-data:
 ```
 
-## ⚙️ Démarrage avec Docker Compose
-
-Pour lancer le projet en local avec les images prêtes :
-
+**Démarrage :**
 ```bash
 docker-compose -f docker-compose.prod.local.yml up -d
-```
-
-Pour vérifier les conteneurs démarrés :
-
-```bash
 docker ps
 ```
 
-Exemple de sortie :
+---
 
-```
-CONTAINER ID   IMAGE                       COMMAND                  STATUS        PORTS
-cd21eb24bc27   teralti/todolist-frontend   "/docker-entrypoint.…"   Up 5 seconds  0.0.0.0:4200->80/tcp
-885930dadf43   teralti/todolist-backend    "docker-entrypoint.s…"   Up 6 seconds  0.0.0.0:3000->3000/tcp
-2ea250094e20   mysql:8.0                   "docker-entrypoint.s…"   Up 6 seconds  0.0.0.0:3306->3306/tcp
-```
+## 🏗️ CI/CD
+
+Les pipelines GitHub Actions incluent :
+
+1. **Tests unitaires**
+   - Backend : Node.js + Jest + Supertest  
+   - Frontend : Angular + Karma + ChromeHeadless  
+2. **Build et push Docker**
+   - Configuration des secrets DockerHub (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`)  
+   - Build des images backend & frontend  
+   - Push sur DockerHub
+3. **Déploiement sur AKS**
+   - Authentification via OIDC avec Azure (`azure/login@v2`)  
+   - Installation NGINX Ingress (`helm upgrade --install`)  
+   - Application des manifests Kubernetes (`kubectl apply -f k8s/`)  
+
+**Remarque :** L’infra AKS est déjà déployée via Terraform, donc le pipeline ne gère que le build, push et déploiement.
 
 ---
 
-## 🧪 Pipelines CI/CD
+## 🖥️ Déploiement manuel sur Kubernetes
 
-### Backend CI
-
-- Test unitaire avec **Jest** + **MySQL service**.  
-- Build et push de l’image Docker sur Docker Hub.  
-- Context : `projet_devops_backend`.
-
-### Frontend CI
-
-- Test unitaire avec **Angular CLI / Karma / Jasmine**.  
-- Build et push de l’image Docker sur Docker Hub.  
-- Context : `projet_devops_frontend`.
-
-### Déploiement AKS
-
-- Workflow GitHub Actions déclenché après validation des pipelines frontend & backend.
-- Authentification Azure via OIDC.
-- Application des manifests Kubernetes dans `k8s/` :
-  - Namespace `todolist`
-  - Deployments & Services : MySQL, Backend, Frontend
-  - Ingress NGINX pour exposer l’application web
-
----
-
-## 🖥️ Accès à l’application
-
-- **Frontend** : via Ingress NGINX sur le cluster AKS  
-- **Backend API** : exposée sur `/api`  
-- Documentation Swagger backend : `/api/docs`
-
----
-
-
-## ✅ Bonnes pratiques CI/CD et déploiement
-
-- Séparation des workflows **backend / frontend / déploiement**.  
-- Déploiement conditionnel uniquement si tests backend et frontend sont réussis.  
-- Rolling update AKS via `kubectl rollout`.  
-- Utilisation de secrets GitHub pour Docker Hub et Azure.  
-- Documentation Swagger générée automatiquement.  
-- Dockerfiles optimisés pour build et déploiement rapide.
-
----
-
-## 📦 Déploiement manuel avec Kubernetes sans passer par GithubAction
-
-### Déployer les manifests
-
-Pour appliquer tous les manifests :
-
+1. Appliquer tous les manifests :  
 ```bash
 kubectl apply -f k8s/
 ```
 
-### Commandes utiles
-
-- Lister les pods :
-
+2. Vérifier les pods et services :  
 ```bash
 kubectl get pods -n todolist
-```
-
-- Lister les services et récupérer l’IP publique de l’ingress :
-
-```bash
 kubectl get svc -n todolist
 ```
 
-- Vérifier le rollout d’un déploiement :
-
+3. Vérifier le rollout :  
 ```bash
 kubectl rollout status deployment/backend -n todolist
 kubectl rollout status deployment/frontend -n todolist
 ```
 
-
-### Accès via ingress
-
-Manifeste Ingress (`k8s/ingress.yml`) :
-
+4. Accès via Ingress :  
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -255,25 +206,31 @@ spec:
                   number: 3000
 ```
 
----
-
-## 🌐 Configurer l’accès via URL
-
-Pour accéder à `todolist.local`, ajouter l’IP publique de l’ingress dans le fichier **hosts** :
-
-- **Windows** : `C:\Windows\System32\drivers\etc\hosts`  
-- **Linux/Mac** : `/etc/hosts`
-
-Exemple :
+5. Configurer le fichier **hosts** pour accéder à `todolist.local` :
+- Windows : `C:\Windows\System32\drivers\etc\hosts`  
+- Linux/Mac : `/etc/hosts`
 
 ```
 <INGRESS_PUBLIC_IP> todolist.local
 ```
-![application web](image.png)
+
 ---
 
-## 🔹 Notes
+## 📊 Monitoring
 
-- L’infrastructure AKS est déployée avec **Terraform** depuis le dossier `iac/`.  
-- Les pipelines CI/CD buildent et pushent les images backend et frontend sur **Docker Hub**.  
-- Les manifests Kubernetes se trouvent dans `k8s/`.
+- **Prometheus** : collecte des métriques des pods et du cluster  
+- **Grafana** : dashboards pour backend, frontend et base MySQL  
+- Exposition des métriques personnalisées via endpoints `/metrics`
+
+---
+
+## ⚡ Difficultés rencontrées et solutions
+
+| Problème | Solution |
+|----------|---------|
+| Backend dépendant de MySQL pour tests | Ajout d’un `initContainer` busybox pour attendre la readiness de MySQL |
+| Build Angular dans Docker | Installation de Angular CLI globalement et ajustement de la commande `ng build --prod` |
+| Déploiement AKS sécurisé | Utilisation d’Azure OIDC pour GitHub Actions, pas besoin de secrets JSON |
+| Persistance des données MySQL | Définition d’un PVC dans Kubernetes avec 1Gi de stockage |
+| Gestion de l’Ingress | Définition de règles pour frontend `/` et backend `/api` |
+
