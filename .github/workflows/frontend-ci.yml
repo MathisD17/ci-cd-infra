@@ -8,6 +8,9 @@ on:
 jobs:
   test-frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projet_devops_frontend
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -19,15 +22,12 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
-        working-directory: projet_devops_frontend
 
       - name: Install Angular CLI globally
         run: npm install -g @angular/cli@15
-        working-directory: projet_devops_frontend
 
       - name: Run frontend unit tests
         run: ng test --watch=false --browsers=ChromeHeadless
-        working-directory: projet_devops_frontend
         
   build-and-push:
     runs-on: ubuntu-latest
