@@ -1,26 +1,105 @@
-name: Deploy to AKS
+name: CI/CD
 
 on:
-  workflow_run:
-    workflows: ["Backend CI", "Frontend CI"]
-    types:
-      - completed
+  push:
+    branches: [ "master" ]
+  pull_request:
 
 permissions:
-  contents: read       # lecture du repo
-  id-token: write      # nécessaire pour OIDC Azure
+  contents: read
+  id-token: write
 
 jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  test-backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projet_devops_backend
+
+    services:
+      mysql:
+        image: mysql:8
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: todolist_db
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
     steps:
-      # 1. Récupérer le repo
-      - name: Checkout infra repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: npm install
+      - run: chmod +x ./node_modules/.bin/jest
+      - run: npm test
 
-      # 2. Connexion à Azure via OIDC (pas besoin de secret JSON)
+  build-and-push-backend:
+    runs-on: ubuntu-latest
+    needs: test-backend
+    if: success()
+    defaults:
+      run:
+        working-directory: projet_devops_backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-backend:latest
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projet_devops_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 16
+      - run: npm install
+      - run: npm install -g @angular/cli@15
+      - run: ng test --watch=false --browsers=ChromeHeadless
+
+  build-and-push-frontend:
+    runs-on: ubuntu-latest
+    needs: test-frontend
+    if: success()
+    defaults:
+      run:
+        working-directory: projet_devops_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-frontend:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-and-push-backend, build-and-push-frontend]
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Azure login
         uses: azure/login@v2
         with:
@@ -28,11 +107,8 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 3. Installer kubectl
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
+      - uses: azure/setup-kubectl@v3
 
-      # 4. Récupérer les credentials du cluster
       - name: Get AKS credentials
         run: |
           az aks get-credentials \
@@ -40,7 +116,6 @@ jobs:
             --name <AKS_CLUSTER_NAME> \
             --overwrite-existing
 
-      # 5. Installer l’ingress si besoin
       - name: Install NGINX Ingress Controller
         run: |
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
@@ -51,7 +126,6 @@ jobs:
             --set controller.nodeSelector."kubernetes\.io/os"=linux \
             --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
 
-      # 6. Attendre l’IP publique de l’ingress
       - name: Wait for ingress IP
         run: |
           echo "Waiting for ingress IP..."
@@ -60,12 +134,9 @@ jobs:
           done
           echo "Ingress IP assigned!"
 
-      # 7. Déployer les manifests
       - name: Apply Kubernetes manifests
-        run: |
-          kubectl apply -f k8s/
+        run: kubectl apply -f k8s/
 
-      # 8. Vérifier les déploiements
       - name: Check rollout
         run: |
           kubectl rollout status deployment/mysql -n todolist
