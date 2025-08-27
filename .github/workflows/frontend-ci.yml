@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: projet_devops_frontend
+        working-directory: frontend
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
-          context: projet_devops_frontend
-          file: projet_devops_frontend/Dockerfile
+          context: frontend
+          file: frontend/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-frontend:latest
