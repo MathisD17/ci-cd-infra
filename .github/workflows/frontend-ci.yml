@@ -9,26 +9,25 @@ jobs:
   test-frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 16
 
       - name: Install frontend dependencies
-        working-directory: ./projet_devops_frontend
-        run: |
-          npm install
+        run: npm install
+        working-directory: projet_devops_frontend
 
       - name: Install Angular CLI globally
-        working-directory: ./projet_devops_frontend
         run: npm install -g @angular/cli@15
+        working-directory: projet_devops_frontend
 
       - name: Run frontend unit tests
-        working-directory: ./projet_devops_frontend
-        run: |
-          ng test --watch=false --browsers=ChromeHeadless
+        run: ng test --watch=false --browsers=ChromeHeadless
+        working-directory: projet_devops_frontend
         
   build-and-push:
     runs-on: ubuntu-latest
@@ -47,7 +46,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
-          context: ./projet_devops_frontend
-          file: ./projet_devops_frontend/Dockerfile
+          context: projet_devops_frontend
+          file: projet_devops_frontend/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-frontend:latest
