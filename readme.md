@@ -116,3 +116,39 @@ kubectl apply -f k8s/todolist-all.yml
 - Une fois les pipelines validés, le dépôt `ci-cd-infra` doit :
   1. Déployer l’infrastructure AKS via Terraform.
   2. Déployer le manifest Kubernetes sur AKS.
+
+
+
+
+  kubectl get pods -n todolist
+kubectl get svc -n todolist
+
+kubectl delete all --all -n todolist
+kubectl delete pvc --all -n todolist
+kubectl delete ingress todolist-ingress -n todolist
+kubectl delete ingress todolist-ingress -n todolist
+
+
+kubectl delete all --all -n ingress-nginx
+kubectl delete pvc --all -n ingress-nginx
+kubectl get all -n ingress-nginx
+
+
+kubectl get pods -n todolist
+kubectl get pods -n ingress-nginx
+
+
+kubectl get deployments -n todolist
+kubectl get deployments -n ingress-nginx
+
+
+
+kubectl get svc -n todolist
+kubectl get svc -n ingress-nginx
+
+
+kubectl get pvc -n todolist
+kubectl get pvc -n ingress-nginx
+
+
+kubectl get ns

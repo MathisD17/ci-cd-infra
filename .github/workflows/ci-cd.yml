@@ -1,6 +1,5 @@
-name: Deploy AKS
+name: Deploy to AKS
 
-# Ce workflow se déclenche uniquement après succès des tests backend et frontend
 on:
   workflow_run:
     workflows: ["Backend CI", "Frontend CI"]
@@ -8,60 +7,51 @@ on:
       - completed
 
 permissions:
-  contents: read        # lecture du repo
-  id-token: write       # pour OIDC Azure
-#  workflows: read       # nécessaire pour workflow_run
-
+  contents: read       # lecture du repo
+  id-token: write      # nécessaire pour OIDC Azure
 
 jobs:
   deploy:
-    # Ne s'exécute que si les workflows précédents ont réussi
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
-      #Récupérer le repo infra (Terraform + manifests)
+      # 1. Récupérer le repo
       - name: Checkout infra repo
         uses: actions/checkout@v4
 
-      #Connexion à Azure
+      # 2. Connexion à Azure via OIDC (pas besoin de secret JSON)
       - name: Azure login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      #Installer Terraform
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.5
-
-      #Déploiement AKS avec Terraform (sera créé plus tard)
-      - name: Deploy AKS with Terraform
-        run: |
-          cd iac
-          terraform init
-          terraform plan -out=tfplan
-          terraform apply -auto-approve
-
-      #Installer kubectl
+      # 3. Installer kubectl
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
 
-      #Récupération des credentials AKS
+      # 4. Récupérer les credentials du cluster
       - name: Get AKS credentials
         run: |
-          az aks get-credentials --resource-group <RESOURCE_GROUP> --name <AKS_CLUSTER_NAME> --overwrite-existing
+          az aks get-credentials \
+            --resource-group <RESOURCE_GROUP> \
+            --name <AKS_CLUSTER_NAME> \
+            --overwrite-existing
+
+      # 5. Installer l’ingress si besoin
       - name: Install NGINX Ingress Controller
         run: |
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-          --namespace ingress-nginx --create-namespace \
-          --set controller.replicaCount=2 \
-          --set controller.nodeSelector."kubernetes\.io/os"=linux \
-          --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
-      
+            --namespace ingress-nginx --create-namespace \
+            --set controller.replicaCount=2 \
+            --set controller.nodeSelector."kubernetes\.io/os"=linux \
+            --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
+
+      # 6. Attendre l’IP publique de l’ingress
       - name: Wait for ingress IP
         run: |
           echo "Waiting for ingress IP..."
@@ -70,14 +60,14 @@ jobs:
           done
           echo "Ingress IP assigned!"
 
-
-      #Déploiement des manifests Kubernetes
+      # 7. Déployer les manifests
       - name: Apply Kubernetes manifests
         run: |
           kubectl apply -f k8s/
+
+      # 8. Vérifier les déploiements
       - name: Check rollout
         run: |
           kubectl rollout status deployment/mysql -n todolist
           kubectl rollout status deployment/backend -n todolist
           kubectl rollout status deployment/frontend -n todolist
-
