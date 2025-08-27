@@ -33,10 +33,14 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: ./projet_devops_backend
+
       - name: Make jest executable
+        working-directory: ./projet_devops_backend
         run: chmod +x ./node_modules/.bin/jest
 
       - name: Run tests
+        working-directory: ./projet_devops_backend
         run: npm test
 
 
@@ -57,7 +61,7 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: Dockerfile
+          context: ./projet_devops_backend
+          file: ./projet_devops_backend/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-backend:latest

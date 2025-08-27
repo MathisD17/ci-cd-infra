@@ -17,13 +17,16 @@ jobs:
           node-version: 16
 
       - name: Install frontend dependencies
+        working-directory: ./projet_devops_frontend
         run: |
           npm install
 
       - name: Install Angular CLI globally
+        working-directory: ./projet_devops_frontend
         run: npm install -g @angular/cli@15
 
       - name: Run frontend unit tests
+        working-directory: ./projet_devops_frontend
         run: |
           ng test --watch=false --browsers=ChromeHeadless
         
@@ -44,7 +47,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: Dockerfile
+          context: ./projet_devops_frontend
+          file: ./projet_devops_frontend/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-frontend:latest
