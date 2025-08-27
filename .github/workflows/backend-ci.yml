@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: projet_devops_backend
+        working-directory: backend
     
     services:
       mysql:
@@ -50,7 +50,7 @@ jobs:
     if: success()
     defaults:
       run:
-        working-directory: projet_devops_backend
+        working-directory: backend
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
