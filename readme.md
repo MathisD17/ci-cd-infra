@@ -269,7 +269,7 @@ Exemple :
 ```
 <INGRESS_PUBLIC_IP> todolist.local
 ```
-![alt text](image.png)
+![application web](image.png)
 ---
 
 ## 🔹 Notes
