@@ -8,6 +8,9 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projet_devops_backend
     
     services:
       mysql:
@@ -34,20 +37,20 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: projet_devops_backend
 
       - name: Make jest executable
         run: chmod +x ./node_modules/.bin/jest
-        working-directory: projet_devops_backend
 
       - name: Run tests
         run: npm test
-        working-directory: projet_devops_backend
 
   build-and-push:
     runs-on: ubuntu-latest
     needs: test-backend
     if: success()
+    defaults:
+      run:
+        working-directory: projet_devops_backend
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -61,7 +64,7 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
-          context: projet_devops_backend
-          file: projet_devops_backend/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-backend:latest
