@@ -119,7 +119,28 @@ volumes:
   mysql-data:
 ```
 
-- Pour tests en production (images Docker Hub) : `docker-compose.prod.local.yml`.
+## ⚙️ Démarrage avec Docker Compose
+
+Pour lancer le projet en local avec les images prêtes :
+
+```bash
+docker-compose -f docker-compose.prod.local.yml up -d
+```
+
+Pour vérifier les conteneurs démarrés :
+
+```bash
+docker ps
+```
+
+Exemple de sortie :
+
+```
+CONTAINER ID   IMAGE                       COMMAND                  STATUS        PORTS
+cd21eb24bc27   teralti/todolist-frontend   "/docker-entrypoint.…"   Up 5 seconds  0.0.0.0:4200->80/tcp
+885930dadf43   teralti/todolist-backend    "docker-entrypoint.s…"   Up 6 seconds  0.0.0.0:3000->3000/tcp
+2ea250094e20   mysql:8.0                   "docker-entrypoint.s…"   Up 6 seconds  0.0.0.0:3306->3306/tcp
+```
 
 ---
 
@@ -156,37 +177,6 @@ volumes:
 
 ---
 
-## 📝 Tests unitaires
-
-- Backend :
-
-```bash
-cd projet_devops_backend
-npm install
-npm test
-```
-
-- Frontend :
-
-```bash
-cd projet_devops_frontend
-npm install
-ng test --watch=false --browsers=ChromeHeadless
-```
-
----
-
-## 📌 Endpoints principaux
-
-| Méthode | Endpoint         | Description                  |
-|--------:|-----------------|------------------------------|
-| GET     | /api/tasks      | Récupère toutes les tâches   |
-| GET     | /api/tasks/:id  | Récupère une tâche           |
-| POST    | /api/tasks      | Crée une tâche               |
-| PUT     | /api/tasks/:id  | Met à jour une tâche         |
-| DELETE  | /api/tasks/:id  | Supprime une tâche           |
-
----
 
 ## ✅ Bonnes pratiques CI/CD et déploiement
 
@@ -199,15 +189,91 @@ ng test --watch=false --browsers=ChromeHeadless
 
 ---
 
-## 🎯 Grille d’évaluation C8 couverte
+## 📦 Déploiement manuel avec Kubernetes sans passer par GithubAction
 
-| Axe | Critère | Points |
-|-----|---------|-------|
-| 1   | Déploiement automatisé via CI/CD (tests exécutés, build, push image, déclenchement) | 4 |
-| 2   | Déploiement fonctionnel sur AKS à l’aide de fichiers YAML | 4 |
-| 3   | Conteneurisation claire et complète de l'application (Dockerfile, variables, ports…) | 2 |
-| 4   | Utilisation cohérente de Terraform pour l’infrastructure cible (cluster, ressources) | 2 |
-| 5   | Mise à jour de l’application par changement d’image/version via AKS (rolling update) | 1.5 |
-| 6   | Présence d'une procédure d'installation et déploiement claire | 1.5 |
-| 7   | Qualité de la documentation globale du projet (README principal, clarté, structure, complétude) | 1 |
+### Déployer les manifests
 
+Pour appliquer tous les manifests :
+
+```bash
+kubectl apply -f k8s/
+```
+
+### Commandes utiles
+
+- Lister les pods :
+
+```bash
+kubectl get pods -n todolist
+```
+
+- Lister les services et récupérer l’IP publique de l’ingress :
+
+```bash
+kubectl get svc -n todolist
+```
+
+- Vérifier le rollout d’un déploiement :
+
+```bash
+kubectl rollout status deployment/backend -n todolist
+kubectl rollout status deployment/frontend -n todolist
+```
+
+
+### Accès via ingress
+
+Manifeste Ingress (`k8s/ingress.yml`) :
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todolist-ingress
+  namespace: todolist
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: todolist.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api/(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3000
+```
+
+---
+
+## 🌐 Configurer l’accès via URL
+
+Pour accéder à `todolist.local`, ajouter l’IP publique de l’ingress dans le fichier **hosts** :
+
+- **Windows** : `C:\Windows\System32\drivers\etc\hosts`  
+- **Linux/Mac** : `/etc/hosts`
+
+Exemple :
+
+```
+<INGRESS_PUBLIC_IP> todolist.local
+```
+![alt text](image.png)
+---
+
+## 🔹 Notes
+
+- L’infrastructure AKS est déployée avec **Terraform** depuis le dossier `iac/`.  
+- Les pipelines CI/CD buildent et pushent les images backend et frontend sur **Docker Hub**.  
+- Les manifests Kubernetes se trouvent dans `k8s/`.
