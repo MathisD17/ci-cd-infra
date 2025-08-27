@@ -55,7 +55,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: projet_devops_backend
-          file: projet_devops_frontend/Dockerfile
+          file: projet_devops_backend/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/todolist-backend:latest
 
