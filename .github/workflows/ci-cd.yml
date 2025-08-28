@@ -113,11 +113,31 @@ jobs:
 
       - name: Configure kubeconfig
         run: |
-          echo "$KUBE_CONFIG_TF" > iac/kubeconfig.yaml
-          echo "KUBECONFIG=$PWD/iac/kubeconfig.yaml" >> $GITHUB_ENV
-
-      - name: Show kubeconfig
-        run: cat iac/kubeconfig.yaml
+          cat <<EOF > iac/kubeconfig.yaml
+        apiVersion: v1
+        kind: Config
+        clusters:
+        - cluster:
+            server: ${{ secrets.KUBE_SERVER }}
+            certificate-authority-data: ${{ secrets.KUBE_CA }}
+        name: aks-cluster
+        contexts:
+        - context:
+            cluster: aks-cluster
+            user: aks-user
+            namespace: ${{ secrets.KUBE_NAMESPACE }}
+        name: aks-context
+        current-context: aks-context
+        users:
+        - name: aks-user
+          user:
+            client-certificate-data: ${{ secrets.KUBE_CERT }}
+            client-key-data: ${{ secrets.KUBE_KEY }}
+            token: ${{ secrets.KUBE_TOKEN }}
+        EOF
+          
+    #  - name: Show kubeconfig
+     #   run: cat iac/kubeconfig.yaml
 
       - name: Test kubectl connection
         run: kubectl get nodes
