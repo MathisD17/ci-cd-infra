@@ -117,7 +117,7 @@ jobs:
           echo "KUBECONFIG=$PWD/iac/kubeconfig.yaml" >> $GITHUB_ENV
 
       - name: Show kubeconfig
-        run: cat ia/kubeconfig.yaml
+        run: cat iac/kubeconfig.yaml
 
       - name: Test kubectl connection
         run: kubectl get nodes
