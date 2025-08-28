@@ -86,11 +86,77 @@ L’infrastructure est provisionnée avec **Terraform**.
 
 ---
 
+## 🔑 Configuration des secrets GitHub pour l’accès AKS
+
+Après avoir provisionné votre cluster AKS avec Terraform, vous devez récupérer le **fichier kubeconfig** pour permettre à GitHub Actions d’interagir avec votre cluster via `kubectl`.
+
+1. **Récupérer le kubeconfig** généré par Terraform :
+
+```bash
+cd iac
+terraform output kube_config > kubeconfig.yaml
+```
+
+2. **Extraire les valeurs importantes et les configurer comme secrets GitHub** :
+
+| Variable | Description |
+|----------|-------------|
+| `KUBE_SERVER` | URL de l’API server AKS, ex: `https://aks-cluster-xxxx.hcp.region.azmk8s.io:443` |
+| `KUBE_CERT` | Valeur de `client-certificate-data` dans kubeconfig |
+| `KUBE_KEY` | Valeur de `client-key-data` dans kubeconfig |
+| `KUBE_CA` | Valeur de `certificate-authority-data` dans kubeconfig |
+| `KUBE_TOKEN` | Token si utilisé (optionnel selon votre configuration) |
+| `KUBE_NAMESPACE` | Namespace Kubernetes où déployer l’application, ex: `todolist` |
+
+3. **Ajouter ces secrets dans votre repository GitHub** :
+
+- Aller dans **Settings → Secrets and Variables → Actions → New repository secret**  
+- Créer chaque secret (`KUBE_SERVER`, `KUBE_CERT`, `KUBE_KEY`, `KUBE_CA`, `KUBE_TOKEN`, `KUBE_NAMESPACE`) avec les valeurs correspondantes extraites du kubeconfig.
+
+4. **Utilisation dans GitHub Actions** :
+
+- Le pipeline CI/CD utilisera ces secrets pour générer dynamiquement un fichier `kubeconfig.yaml` et configurer `kubectl` afin de déployer vos manifests dans le cluster AKS.
+- Exemple dans le pipeline :
+
+```yaml
+- name: Configure kubeconfig
+  run: |
+    mkdir -p iac
+    cat <<EOF > iac/kubeconfig.yaml
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: ${{ secrets.KUBE_SERVER }}
+    certificate-authority-data: ${{ secrets.KUBE_CA }}
+  name: aks-cluster
+contexts:
+- context:
+    cluster: aks-cluster
+    user: aks-user
+    namespace: ${{ secrets.KUBE_NAMESPACE }}
+  name: aks-context
+current-context: aks-context
+users:
+- name: aks-user
+  user:
+    client-certificate-data: ${{ secrets.KUBE_CERT }}
+    client-key-data: ${{ secrets.KUBE_KEY }}
+    token: ${{ secrets.KUBE_TOKEN }}
+EOF
+    echo "KUBECONFIG=$PWD/iac/kubeconfig.yaml" >> $GITHUB_ENV
+```
+
+**Pour exécuter le pipeline**, il suffit de faire un **push sur la branche `master`**.
+
+---
+
 ## 📦 Conteneurisation et Docker
 
 - Chaque composant possède son **Dockerfile** (backend & frontend)  
 - Les images sont **buildées et poussées sur DockerHub** via Docker Compose et GitHub Actions  
 - Exemple Docker Compose pour tester en local (`docker-compose.prod.local.yml`) :
+
 
 ```yaml
 services:
@@ -148,11 +214,24 @@ Les pipelines GitHub Actions incluent :
    - Build des images backend & frontend  
    - Push sur DockerHub
 3. **Déploiement sur AKS**
-   - Authentification via OIDC avec Azure (`azure/login@v2`)  
+   - Utilisation du kubeconfig avec les secrets GitHub pour se connecter à AKS (plus besoin de `azure/login@v2`)  
    - Installation NGINX Ingress (`helm upgrade --install`)  
    - Application des manifests Kubernetes (`kubectl apply -f k8s/`)  
 
-**Remarque :** L’infra AKS est déjà déployée via Terraform, donc le pipeline ne gère que le build, push et déploiement.
+**Remarque :** L’infra AKS est déjà déployée via Terraform, donc le pipeline ne gère que les tests, les build, push et déploiement.
+
+**Déploiement manuel pour test** :  
+Dans le projet, le déploiement est automatisé, mais si vous souhaitez tester les manifests sur votre machine, vous pouvez utiliser le kubeconfig localement et exécuter :
+
+```bash
+kubectl apply -f k8s/
+kubectl get pods -n todolist
+kubectl get svc -n todolist
+kubectl rollout status deployment/backend -n todolist
+kubectl rollout status deployment/frontend -n todolist
+```
+
+Cela permet de tester vos manifests sans passer par le pipeline.
 
 ---
 
@@ -197,7 +276,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-          - path: /api/(.*)
+          - path: /api/
             pathType: Prefix
             backend:
               service:
