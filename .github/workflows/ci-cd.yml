@@ -151,6 +151,18 @@ jobs:
       - name: Deploy Kubernetes manifests
         run: kubectl apply -f k8s/
 
+
+      - name: Restart les conteneurs pour pull les dernières images docker
+        run: |
+          for deploy in backend frontend mysql; do
+            if kubectl get deployment $deploy -n todolist >/dev/null 2>&1; then
+              echo "Restarting deployment $deploy..."
+              kubectl rollout restart deployment/$deploy -n todolist
+            else
+              echo "Deployment $deploy does not exist yet, skipping restart."
+            fi
+          done
+
       - name: Check rollout
         run: |
           kubectl rollout status deployment/mysql -n todolist
