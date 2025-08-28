@@ -64,7 +64,7 @@ L’infrastructure est provisionnée avec **Terraform**.
    ```bash
    cd iac
    ```
-2. Personnaliser les variables (`variables.tf` et `terraform.tfvars`) pour votre abonnement Azure.  
+2. Personnaliser les variables (`variables.tf`) pour votre abonnement Azure.  
 3. Initialiser Terraform :  
    ```bash
    terraform init
