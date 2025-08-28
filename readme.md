@@ -1,6 +1,6 @@
 # ToDoList CI/CD Project
 
-**Auteur :** @NoahT  
+**Auteur :** @Noah Louineau, Mathis Dizet  
 **Date :** 2025-08-27
 
 Ce projet regroupe le **backend** et le **frontend** de l’application ToDoList, avec **CI/CD**, **Docker**, et déploiement sur **AKS**. L’objectif est de mettre en place un workflow complet de production d’une application conteneurisée, avec tests automatisés, build/push des images, et orchestration Kubernetes.
