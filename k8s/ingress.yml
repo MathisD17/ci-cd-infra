@@ -19,7 +19,7 @@ spec:
                 port:
                   number: 80
           # Backend
-          - path: /api/(.*)
+          - path: /api
             pathType: Prefix
             backend:
               service:
