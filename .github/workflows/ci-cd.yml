@@ -168,3 +168,25 @@ jobs:
           kubectl rollout status deployment/mysql -n todolist
           kubectl rollout status deployment/backend -n todolist
           kubectl rollout status deployment/frontend -n todolist
+
+      - name: Get external IPs
+        run: |
+          echo "Fetching frontend Service external IP..."
+          FRONTEND_IP=""
+          while [ -z "$FRONTEND_IP" ]; do
+            FRONTEND_IP=$(kubectl get svc frontend -n todolist -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            [ -z "$FRONTEND_IP" ] && echo "Waiting for frontend external IP..." && sleep 5
+          done
+          echo "Frontend external IP: $FRONTEND_IP"
+
+          echo "Fetching Ingress external IP..."
+          INGRESS_IP=""
+          while [ -z "$INGRESS_IP" ]; do
+            INGRESS_IP=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            [ -z "$INGRESS_IP" ] && echo "Waiting for ingress external IP..." && sleep 5
+          done
+          echo "Ingress external IP: $INGRESS_IP"
+
+          echo "FRONTEND_IP=$FRONTEND_IP" >> $GITHUB_ENV
+          echo "INGRESS_IP=$INGRESS_IP" >> $GITHUB_ENV
+
