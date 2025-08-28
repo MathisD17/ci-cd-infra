@@ -113,11 +113,11 @@ jobs:
 
       - name: Configure kubeconfig
         run: |
-          echo "$KUBE_CONFIG_TF" > kubeconfig.yaml
-          echo "KUBECONFIG=$PWD/kubeconfig.yaml" >> $GITHUB_ENV
+          echo "$KUBE_CONFIG_TF" > iac/kubeconfig.yaml
+          echo "KUBECONFIG=$PWD/iac/kubeconfig.yaml" >> $GITHUB_ENV
 
       - name: Show kubeconfig
-        run: cat kubeconfig.yaml
+        run: cat ia/kubeconfig.yaml
 
       - name: Test kubectl connection
         run: kubectl get nodes
